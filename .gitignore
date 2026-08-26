@@ -1,0 +1,20 @@
+# Secrets: never commit real env files (backend/.env holds Atlas + JWT secret)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+# Flow Mate production compose
+#
+# Uses MongoDB Atlas by default. Provide the connection string via the
+# MONGODB_CONNECTION_STRING env var (e.g. in a .env file alongside this
+# compose file, or exported in your shell). It is NOT bundled here.
+#
+#   MONGODB_CONNECTION_STRING="mongodb+srv://<user>:***@<cluster>/flowmate" \
+#     docker compose up --build
+#
+# Local MongoDB (no Atlas) alternative: uncomment the `mongo` service and
+# the `depends_on` line, then set MONGODB_CONNECTION_STRING to the local URI.
+
+services:
+  api:
+    build: .
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=production
+      - PORT=5001
+      - MONGODB_CONNECTION_STRING=${MONGODB_CONNECTION_STRING}
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-long-random-string}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5001}
+    restart: unless-stopped
+
+  # mongo:
+  #   image: mongo:7
+  #   volumes:
+  #     - mongo-data:/data/db
+  #   restart: unless-stopped
+
+# volumes:
+#   mongo-data:
