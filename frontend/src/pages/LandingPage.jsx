@@ -302,7 +302,7 @@ function Footer() {
         <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <Link to="/login" className="foot-link">Sign in</Link>
           <Link to="/register" className="foot-link">Get started</Link>
-          <a className="foot-link" href="https://github.com" target="_blank" rel="noreferrer">Source</a>
+          <a className="foot-link" href="https://github.com/tricuongdao/FlowMate" target="_blank" rel="noreferrer">Source</a>
         </nav>
         <p className="text-xs text-muted/70">© {new Date().getFullYear()} Flow Mate</p>
       </div>
