@@ -35,9 +35,36 @@ const app = createApp(apiLimiter);
 
 let server;
 
+// Retry the DB connection so a slow Atlas handshake (or a cold Render start)
+// doesn't hard-crash the deploy. Keeps trying with backoff, then gives up.
+const MAX_ATTEMPTS = 10;
+const RETRY_DELAY_MS = 5000;
+
+async function connectWithRetry(attempt = 1) {
+  try {
+    await mongoose.connect(MONGODB_CONNECTION_STRING, {
+      serverSelectionTimeoutMS: 15000,
+    });
+    console.log("Connected to MongoDB");
+  } catch (err) {
+    console.error(
+      `MongoDB connect failed (attempt ${attempt}/${MAX_ATTEMPTS}): ${err.message}`
+    );
+    if (attempt >= MAX_ATTEMPTS) {
+      console.error(
+        "Could not reach MongoDB after retries. Check: (1) Atlas Network " +
+          "Access allows 0.0.0.0/0, (2) MONGODB_CONNECTION_STRING password is " +
+          "correct and special characters are URL-encoded."
+      );
+      process.exit(1);
+    }
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    return connectWithRetry(attempt + 1);
+  }
+}
+
 async function start() {
-  await mongoose.connect(MONGODB_CONNECTION_STRING);
-  console.log("Connected to MongoDB");
+  await connectWithRetry();
 
   server = app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
