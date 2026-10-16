@@ -1,21 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/context";
 import { useTasks } from "@/lib/tasks";
-import { DATE_FILTERS, STATUS_TABS } from "@/lib/data";
-import Header from "@/components/Header";
-import AddTask from "@/components/AddTask";
-import Segmented from "@/components/Segmented";
-import TaskList from "@/components/TaskList";
-import TaskEmptyState from "@/components/TaskEmptyState";
-import TaskListPagination from "@/components/TaskListPagination";
+import { DATE_FILTERS, STATUS_TABS, TASKS_PER_PAGE } from "@/lib/data";
+import { dueState } from "@/lib/dial";
+import { useNow } from "@/lib/useNow";
+import CaseBack from "@/components/CaseBack";
+import Dial from "@/components/Dial";
+import Registers from "@/components/Registers";
+import ChapterRing from "@/components/ChapterRing";
+import Composer from "@/components/Composer";
+import Rack from "@/components/Rack";
+import EmptyRack from "@/components/EmptyRack";
+import RackPager from "@/components/RackPager";
 
 /**
- * Home: greeting, composer, scope controls (status tabs / search /
- * date scope), then the list. Search is debounced at the page level so
- * the API isn't hit per keystroke; page state resets when scope changes.
+ * The instrument. One screen, two columns on a desk and one on a phone:
+ * the dial and its registers on the left, the composer and the register of
+ * entries on the right. Scope controls sit above both because they govern
+ * both — narrowing the date scope narrows the dial as well as the rack.
  */
-const HomePage = () => {
+export default function HomePage() {
   const { user } = useAuth();
+  const now = useNow();
   const [status, setStatus] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [searchInput, setSearchInput] = useState("");
@@ -23,21 +29,28 @@ const HomePage = () => {
   const [page, setPage] = useState(1);
   const debounceRef = useRef(null);
 
-  // Debounce search input → query value (250ms).
+  // Debounce typing into the query: the API is not hit per keystroke.
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setSearch(searchInput.trim()), 250);
     return () => clearTimeout(debounceRef.current);
   }, [searchInput]);
 
-  // Reset to page 1 whenever the scope shifts under the user.
+  // Any change of scope puts the register back to its first page.
   useEffect(() => {
     setPage(1);
   }, [status, dateFilter, search]);
 
-  const params = { status, filter: dateFilter, search, page };
   const { isPending, isFetching, tasks, pagination, activeCount, completeCount } =
-    useTasks(params);
+    useTasks({ status, filter: dateFilter, search, page });
+
+  // Late is the one reading that has to be counted from the rows themselves:
+  // the API has no overdue filter, so the dial and the register agree only if
+  // both derive it from the same list.
+  const lateCount = useMemo(
+    () => tasks.filter((t) => dueState(t, now) === "late").length,
+    [tasks, now]
+  );
 
   const counts = {
     all: activeCount + completeCount,
@@ -45,78 +58,115 @@ const HomePage = () => {
     complete: completeCount,
   };
 
-  const tabOptions = STATUS_TABS.map((tab) => ({
-    ...tab,
-    count: counts[tab.value],
-  }));
-
-  const searching = !!search;
+  const tabOptions = STATUS_TABS.map((t) => ({ ...t, count: counts[t.value] }));
+  const emptyScope = search ? "search" : status;
 
   return (
     <div className="min-h-dvh">
-      <div className="backdrop-aurora" aria-hidden="true" />
-      <Header />
+      <CaseBack />
 
-      <main className="mx-auto w-full max-w-2xl px-4 pb-20 sm:px-6">
-        <section className="page-enter mt-10 mb-8">
-          <h1 className="display text-[2rem] font-semibold sm:text-[2.4rem]">
-            {greeting()}, {firstName(user?.name)}.
-          </h1>
-          <p className="mt-1 text-[15px] text-muted">{summaryLine(counts)}</p>
-        </section>
+      <main className="mx-auto w-full max-w-[86rem] px-4 pb-16 sm:px-6">
+        {/* Signature + scope controls: these govern the dial and the rack alike */}
+        <div className="enter mt-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="struck text-[1.75rem] sm:text-[2.1rem]">
+              {greeting()}, {firstName(user?.name)}.
+            </h1>
+            <p className="mt-1 text-[0.9375rem] text-[var(--on-ground-2)]">
+              {summaryLine({ active: activeCount, complete: completeCount, late: lateCount })}
+            </p>
+          </div>
 
-        <AddTask />
-
-        {/* Scope controls */}
-        <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-3">
-          <Segmented
-            label="Filter by status"
-            value={status}
-            onChange={setStatus}
-            options={tabOptions}
-          />
-          <div className="flex items-center gap-2">
-            <label className="relative">
-              <span className="sr-only">Search tasks</span>
-              <svg
-                viewBox="0 0 16 16"
-                className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5L14 14" />
-              </svg>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="legend mb-1.5 block text-[var(--on-ground-2)]">
+                Find
+              </span>
               <input
                 type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search…"
-                className="field h-9 w-40 pl-8 pr-3 text-sm sm:w-48"
+                aria-label="Search tasks"
+                className="field h-9 w-full px-3 text-sm sm:w-52"
               />
             </label>
-            <DateScopeSelect value={dateFilter} onChange={setDateFilter} />
+
+            <label className="block">
+              <span className="legend mb-1.5 block text-[var(--on-ground-2)]">
+                Scope
+              </span>
+              <select
+                aria-label="Filter by date"
+                className="field h-9 cursor-pointer px-2.5 text-sm text-[var(--on-ground-2)]"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              >
+                {DATE_FILTERS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
-        <TaskList
-          tasks={tasks}
-          isLoading={isPending}
-          empty={<TaskEmptyState scope={searching ? "search" : status} />}
-        />
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] xl:items-start xl:gap-8 xl:pb-6">
+          {/* The working side. It leads on a phone, because that is where the
+              work is done; on a desk the dial takes the left column and the
+              reading order still starts there. */}
+          <section
+            className="enter order-1 xl:order-2"
+            style={{ "--i": 2 }}
+            aria-label="Task register"
+          >
+            <ChapterRing
+              label="Filter by status"
+              value={status}
+              onChange={setStatus}
+              options={tabOptions}
+            />
 
-        {(pagination.hasNextPage || pagination.hasPrevPage) && (
-          <TaskListPagination
-            page={pagination.page}
-            totalPages={pagination.totalPages}
-            onPage={setPage}
-          />
-        )}
+            <div className="mt-3">
+              <Composer />
+            </div>
 
-        {/* Live region: screen readers hear list updates without visual noise */}
+            <div className="mt-5">
+              <Rack
+                tasks={tasks}
+                isLoading={isPending}
+                now={now}
+                empty={<EmptyRack scope={emptyScope} />}
+              />
+
+              <RackPager
+                page={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                limit={TASKS_PER_PAGE}
+                onPage={setPage}
+              />
+            </div>
+          </section>
+
+          {/* The measuring side */}
+          <section
+            className="plate enter order-2 xl:order-1 xl:sticky xl:top-6"
+            style={{ "--i": 1 }}
+            aria-label="Time dial"
+          >
+            <Dial tasks={tasks} now={now} />
+            <div className="hair-t">
+              <Registers
+                active={activeCount}
+                late={lateCount}
+                complete={completeCount}
+              />
+            </div>
+          </section>
+        </div>
+
         <p className="sr-only" role="status">
           {isFetching && !isPending
             ? "Updating tasks…"
@@ -125,7 +175,7 @@ const HomePage = () => {
       </main>
     </div>
   );
-};
+}
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
@@ -135,37 +185,17 @@ function firstName(fullName) {
 
 function greeting() {
   const h = new Date().getHours();
-  if (h < 5) return "Up late";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 5) return "Still up";
+  if (h < 12) return "Morning";
+  if (h < 18) return "Afternoon";
+  return "Evening";
 }
 
-function summaryLine({ active, complete }) {
-  if (active === 0 && complete === 0)
-    return "A clean slate. Add your first task below.";
-  if (active === 0) return "Everything's done. Enjoy the clear deck.";
-  const noun = active === 1 ? "task" : "tasks";
-  return complete > 0
-    ? `${active} ongoing ${noun}, ${complete} done.`
-    : `${active} ongoing ${noun} in your flow.`;
+function summaryLine({ active, complete, late }) {
+  if (late === 1) return "1 task past due.";
+  if (late > 1) return `${late} tasks past due.`;
+  if (active === 0 && complete === 0) return "Nothing set yet.";
+  if (active === 0) return "Everything closed.";
+  if (complete > 0) return `${active} open, ${complete} closed.`;
+  return `${active} open.`;
 }
-
-function DateScopeSelect({ value, onChange }) {
-  return (
-    <select
-      aria-label="Filter by date"
-      className="field h-9 cursor-pointer px-2.5 text-sm text-muted"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {DATE_FILTERS.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-export default HomePage;

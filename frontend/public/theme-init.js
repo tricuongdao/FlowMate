@@ -1,8 +1,11 @@
-// Apply the persisted theme before first paint to avoid a flash.
+// Set the dial before first paint so there is no flash of the wrong one.
+// The instrument's native state is the dark dial.
 try {
   var t = localStorage.getItem("flowmate-theme");
-  var dark =
-    t === "dark" ||
-    (!t && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  if (dark) document.documentElement.classList.add("dark");
-} catch (e) {}
+  var light =
+    t === "light" ||
+    (!t && window.matchMedia("(prefers-color-scheme: light)").matches);
+  if (!light) document.documentElement.classList.add("dark");
+} catch (err) {
+  if (err) document.documentElement.classList.add("dark");
+}

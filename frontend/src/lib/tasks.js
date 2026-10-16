@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import api from "./axios";
+import { TASKS_PER_PAGE } from "./data";
 
 /** Read the API's error shape ({ message, details? }) into one string. */
 export function apiError(error) {
@@ -28,7 +29,7 @@ function taskParams({ status, filter, search, page }) {
     filter,
     ...(search ? { search } : {}),
     page,
-    limit: 6,
+    limit: TASKS_PER_PAGE,
   };
 }
 
@@ -47,21 +48,25 @@ export function useTasks(params) {
     tasks: query.data?.tasks ?? [],
     pagination:
       query.data?.pagination ??
-      { page: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+      {
+        page: 1,
+        limit: TASKS_PER_PAGE,
+        totalItems: 0,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
     activeCount: query.data?.activeCount ?? 0,
     completeCount: query.data?.completeCount ?? 0,
   };
 }
 
-function useTaskMutation(mutationFn, { success, invalidate = true } = {}) {
+function useTaskMutation(mutationFn) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn,
-    onMutate: success == null ? undefined : () => toast.success(success),
     onError: (error) => toast.error(apiError(error)),
-    onSettled: () => {
-      if (invalidate) qc.invalidateQueries({ queryKey: KEYS.all() });
-    },
+    onSettled: () => qc.invalidateQueries({ queryKey: KEYS.all() }),
   });
 }
 
@@ -82,8 +87,8 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.delete(`/tasks/${id}`),
-    // Optimistic removal: the card collapses out instantly; a failure
-    // rolls the list back and surfaces why.
+    // Optimistic removal: the row collapses out at once. A failure puts the
+    // list back and says why.
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: KEYS.all() });
       const snapshot = qc.getQueriesData({ queryKey: KEYS.all() });

@@ -18,3 +18,8 @@ build/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Impeccable working artifacts: decision payloads, surface briefs, and the
+# review screenshot set. Session-local by nature; DESIGN.md and PRODUCT.md at
+# the repo root are the durable records and stay tracked.
+.impeccable/

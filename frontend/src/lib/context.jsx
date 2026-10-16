@@ -59,13 +59,15 @@ export function useAuth() {
 
 const THEME_KEY = "flowmate-theme";
 
+// The instrument's native state is the dark dial; light is the exception the
+// visitor asks for, either here or in their system preference.
 function initialTheme() {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(THEME_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
 }
 
 const ThemeContext = createContext(null);

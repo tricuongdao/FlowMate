@@ -1,10 +1,12 @@
 # Flow Mate
 
-A calm task list. Your day, in flow. Capture tasks with due dates, scope them by status or date, search across everything you've saved, and check them off as you go. Your tasks stay scoped to your account and follow you across sessions.
+A task list that measures your commitments against time. Each task lands on a
+dial at the moment it falls due, a red needle marks now, and everything behind
+the needle prints as late.
 
 ## Stack
 
-- **Frontend**: React 18 + Vite, Tailwind CSS (v4), TanStack Query, React Router, Sonner toasts
+- **Frontend**: React 19 + Vite, Tailwind CSS v4, TanStack Query, React Router, Sonner, lucide-react
 - **Backend**: Node.js + Express, MongoDB via Mongoose, JWT auth in httpOnly cookies, Helmet security headers
 - **Deploy**: Render (single web service serves both API and built SPA)
 
@@ -24,39 +26,64 @@ FlowMate/
 │   ├── .env.example           # Template for required env vars
 │   └── package.json
 ├── frontend/
-│   ├── public/                # Static assets (favicon, theme-init.js)
+│   ├── public/
+│   │   ├── fonts/             # Self-hosted Archivo Narrow, IBM Plex Mono, DSEG7
+│   │   └── theme-init.js      # Sets the dial before first paint
 │   ├── src/
-│   │   ├── components/        # Reusable UI (TaskCard, Header, Segmented, etc.)
-│   │   ├── lib/               # Axios, context, animations, utilities
-│   │   ├── pages/             # Landing, Auth, Home (task board)
+│   │   ├── components/
+│   │   │   ├── Dial.jsx       # The arc dial and the narrow stick gauge
+│   │   │   ├── ChapterRing.jsx # Status selector with an applied index
+│   │   │   ├── Registers.jsx  # Open / late / closed readings
+│   │   │   ├── Composer.jsx   # Title plus a due date set on a minute track
+│   │   │   ├── Rack.jsx       # The task register (head, rows, skeleton)
+│   │   │   ├── RackRow.jsx    # One entry: index, title, due stamp, actions
+│   │   │   ├── RackPager.jsx  # Position readout and paging
+│   │   │   ├── EmptyRack.jsx  # Empty states: a stopped dial
+│   │   │   ├── CaseBack.jsx   # Header: maker's mark and controls
+│   │   │   ├── AuthLayout.jsx # Movement card beside the form
+│   │   │   ├── DemoDial.jsx   # The landing page's labelled demonstration
+│   │   │   └── InstrumentMark.jsx
+│   │   ├── lib/
+│   │   │   ├── dial.js        # Every measurement the dial reads
+│   │   │   ├── tasks.js       # Query + mutation hooks
+│   │   │   ├── context.jsx    # Auth and theme providers
+│   │   │   ├── useNow.js      # The running time
+│   │   │   ├── useReveal.js   # Scroll reveal for the spec sheet
+│   │   │   ├── animate.js     # Exit collapse
+│   │   │   ├── axios.js       # API client
+│   │   │   └── data.js        # Status/date scopes and page size
+│   │   ├── pages/             # Landing, Auth, Home (the instrument)
 │   │   ├── __tests__/         # Vitest + MSW
-│   │   ├── index.css          # Tailwind v4 + design tokens
-│   │   ├── main.jsx           # Entry
-│   │   └── App.jsx            # Routes + providers
+│   │   └── index.css          # The Chronometer design system
+│   ├── tools/                 # Dev-only harnesses (see Testing)
 │   ├── index.html
 │   ├── vite.config.js
 │   └── package.json
 ├── render.yaml                # Render Blueprint (single web service)
 ├── docker-compose.yml         # Local dev stack
 ├── Dockerfile                 # Production image (optional)
-├── .node-version              # Node 22.12.0 (Vite 7 requirement)
-├── .gitignore
+├── DESIGN.md                  # The visual system: tokens, grammar, rules
+├── PRODUCT.md                 # Durable product truth
 └── LICENSE
 ```
 
 ## Core principles
 
-**Per-account isolation.** Every task belongs to one user. The backend filters every query by `req.user._id`. No shared lists, no admin view, no leakage. Your data is yours.
+**Time is the structure.** The dial answers "where do I stand against time?"
+before the list answers anything else. Day graduations run outward, tasks are
+applied where they fall, and the needle sits at now.
 
-**Calm by default.** No badges that scream, no streaks to protect, no upgrade nudges. The only signal color is green for done and amber when something is genuinely late. The UI crossfades instead of flashing.
+**Late is the one loud fact.** Red means now and overdue, and nothing else.
+Brass means the instrument acts and a task is settled. Nothing is coloured
+before it is owed.
 
-**Search that keeps up.** Type a word and the list narrows as you go. It covers every title you've ever saved.
+**Closing is the reward.** A brass strike crosses the row and the entry settles
+into the register with the day you closed it.
 
-**Progress that saves itself.** Check a task off and the row settles into a quiet done state. Your count updates on its own. Nothing needs saving.
+**Capture costs nothing.** A title is enough. The due date is optional and set
+on a minute track, and tasks without one stay off the dial.
 
-**Due dates that nudge instead of nag.** A task turns amber only once it's actually overdue. Until then it just sits there, patiently.
-
-**Single-origin simplicity.** The backend serves the API and the built SPA from one origin. No CORS headaches, no split deployments. One Render service, one URL.
+**No management overhead.** No boards, no streaks, no reminders, no tiers.
 
 ## Local development
 
@@ -76,7 +103,8 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. The Vite dev server proxies `/api` to the backend on port 5001.
+Open http://localhost:5173. The Vite dev server proxies `/api` to the backend
+on port 5001.
 
 ## Environment variables (backend)
 
@@ -85,7 +113,7 @@ Open http://localhost:5173. The Vite dev server proxies `/api` to the backend on
 | `MONGODB_CONNECTION_STRING` | yes | MongoDB Atlas SRV URI (or local URI) |
 | `JWT_SECRET` | yes (production) | Long random string (generate: `openssl rand -hex 32`) |
 | `CORS_ORIGINS` | no | Comma-separated origins for cross-origin calls |
-| `NODE_ENV` | no | `production` enables secure cookies |
+| `NODE_ENV` | no | `production` enables secure cookies and serves the built SPA |
 | `PORT` | no | Defaults to 5001 (Render sets 10000) |
 
 ## Render deploy (single service)
@@ -108,7 +136,8 @@ Open http://localhost:5173. The Vite dev server proxies `/api` to the backend on
 ```bash
 docker compose up --build
 ```
-Exposes the app on port 5001. Requires `MONGODB_CONNECTION_STRING` and `JWT_SECRET` in the environment.
+Exposes the app on port 5001. Requires `MONGODB_CONNECTION_STRING` and
+`JWT_SECRET` in the environment.
 
 ## API overview
 
@@ -123,13 +152,47 @@ Exposes the app on port 5001. Requires `MONGODB_CONNECTION_STRING` and `JWT_SECR
 | PUT | `/api/tasks/:id` | yes | Update task |
 | DELETE | `/api/tasks/:id` | yes | Delete task |
 
+`GET /api/tasks` accepts `status` (all/active/complete), `filter`
+(all/today/week/month), `search`, `page`, and `limit` (max 50).
+
 ## Testing
 
 ```bash
 cd frontend
-npm test          # Vitest + MSW (11 tests)
+npm test          # Vitest + MSW
 npm run lint      # ESLint
+npm run build     # Production bundle
 ```
+
+`frontend/tools/` holds development-only harnesses. They are not part of the
+shipped app and nothing in `src/` imports them.
+
+```bash
+cd frontend
+npm run build
+
+# Screenshot a named view (see JOBS in the file for the full list)
+node tools/shoot.mjs app-desktop-fold ../.impeccable/review/app.png
+
+# Measure the width the dial actually receives at every breakpoint.
+# The arc/stick threshold is set from this, not from a guess.
+node tools/measure.mjs
+
+# WCAG contrast audit for every text pair, including composited ones.
+# The mechanical design detector cannot evaluate computed contrast, so this
+# covers it. Exits non-zero on any pair below its bar.
+node tools/contrast.mjs
+
+# Cross-check DESIGN.md's frontmatter against index.css, and its rule/do/don't
+# counts against .impeccable/design.json. Reports any silent drift.
+node tools/doccheck.mjs
+```
+
+## Design
+
+`DESIGN.md` records the visual system: the Chronometer's palette, materials,
+type roles, component grammar, and the rules that keep it coherent. `PRODUCT.md`
+records the durable product truth the design serves.
 
 ## License
 

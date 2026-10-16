@@ -105,19 +105,31 @@ describe("HomePage", () => {
     expect(db.tasks.some((t) => t.title === "Water the plants")).toBe(true);
   });
 
-  it("toggles a task complete and the check animates", async () => {
+  it("toggles a task complete and the row draws its strike", async () => {
     const user = userEvent.setup();
     await renderHome();
 
     await waitFor(() =>
       expect(screen.getByText("Ship the v3 redesign")).toBeInTheDocument()
     );
-    const checkboxes = screen.getAllByRole("checkbox", { name: "Mark as completed" });
-    await user.click(checkboxes[0]);
+
+    // The row's index keeps its role across the toggle, so match on the label
+    // prefix rather than the full name, which flips when the state does.
+    const index = screen.getAllByRole("checkbox", {
+      name: /^Mark as (completed|ongoing)$/,
+    })[0];
+    expect(index).toHaveAttribute("data-checked", "false");
+
+    await user.click(index);
 
     await waitFor(() =>
-      expect(checkboxes[0].querySelector('[data-checked="true"]')).toBeInTheDocument()
+      expect(index).toHaveAttribute("data-checked", "true")
     );
+    expect(index).toHaveAttribute("aria-checked", "true");
+    expect(index.querySelector(".rack-check")).toBeInTheDocument();
+    expect(
+      index.closest(".rack-row").querySelector('.strike[data-struck="true"]')
+    ).toBeInTheDocument();
   });
 
   it("deletes a task after the exit animation hands off", async () => {
