@@ -22,4 +22,8 @@ Thumbs.db
 # Impeccable working artifacts: decision payloads, surface briefs, and the
 # review screenshot set. Session-local by nature; DESIGN.md and PRODUCT.md at
 # the repo root are the durable records and stay tracked.
-.impeccable/
+#
+# Git will not descend into an excluded directory, so the negation has to
+# re-include the folder first and then the one file inside it.
+.impeccable/*
+!.impeccable/REVIEW.md
